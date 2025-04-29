@@ -1,0 +1,39 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35931.197
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestContainerDemo.ConsoleApp", "TestContainerDemo.ConsoleApp\TestContainerDemo.ConsoleApp.csproj", "{AC6BC2BE-C68E-4C29-B0E7-73E2838E0785}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestContainerDemo.Tests", "TestContainerDemo.Tests\TestContainerDemo.Tests.csproj", "{D0566774-BCEB-4AFF-B46A-96C5BCDE40F9}"
+	ProjectSection(ProjectDependencies) = postProject
+		{AC6BC2BE-C68E-4C29-B0E7-73E2838E0785} = {AC6BC2BE-C68E-4C29-B0E7-73E2838E0785}
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ソリューション項目", "ソリューション項目", "{2022CB0F-8BAF-F49E-0C48-8EF4C96EC109}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AC6BC2BE-C68E-4C29-B0E7-73E2838E0785}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AC6BC2BE-C68E-4C29-B0E7-73E2838E0785}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AC6BC2BE-C68E-4C29-B0E7-73E2838E0785}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AC6BC2BE-C68E-4C29-B0E7-73E2838E0785}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D0566774-BCEB-4AFF-B46A-96C5BCDE40F9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D0566774-BCEB-4AFF-B46A-96C5BCDE40F9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D0566774-BCEB-4AFF-B46A-96C5BCDE40F9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D0566774-BCEB-4AFF-B46A-96C5BCDE40F9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {453A14C2-F09C-410A-9E70-81C50B6F89F1}
+	EndGlobalSection
+EndGlobal
