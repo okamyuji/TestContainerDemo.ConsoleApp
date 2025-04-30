@@ -1,4 +1,5 @@
-﻿using Oracle.ManagedDataAccess.Client;
+﻿using Dapper;
+using Oracle.ManagedDataAccess.Client;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -18,24 +19,24 @@ namespace TestContainerDemo.ConsoleApp.Repositories
 
         public async Task<int> CreateCustomerAsync(Customer customer)
         {
-            using (OracleConnection connection = new OracleConnection(_connectionString))
+            using (var connection = new OracleConnection(_connectionString))
             {
                 await connection.OpenAsync();
 
-                // Oracleではシーケンスを使うのが一般的
-                string sql = @"
-                    INSERT INTO CUSTOMERS (NAME, EMAIL, CREATED_AT) 
-                    VALUES (:Name, :Email, :CreatedAt) 
-                    RETURNING ID INTO :Id";
-
-                using (OracleCommand command = new OracleCommand(sql, connection))
+                // Dapperの代わりに素のADO.NETを使用して、IDを取得する
+                // これはOracle特有の方法でRETURNING句と出力パラメータを処理するため
+                using (var command = connection.CreateCommand())
                 {
+                    command.CommandText = @"
+                        INSERT INTO CUSTOMERS (NAME, EMAIL, CREATED_AT) 
+                        VALUES (:Name, :Email, :CreatedAt) 
+                        RETURNING ID INTO :Id";
+
                     command.Parameters.Add("Name", OracleDbType.Varchar2).Value = customer.Name;
                     command.Parameters.Add("Email", OracleDbType.Varchar2).Value = customer.Email;
                     command.Parameters.Add("CreatedAt", OracleDbType.Date).Value = customer.CreatedAt;
 
-                    // OUTパラメータの設定
-                    OracleParameter idParam = new OracleParameter("Id", OracleDbType.Int32)
+                    var idParam = new OracleParameter("Id", OracleDbType.Int32)
                     {
                         Direction = ParameterDirection.Output
                     };
@@ -43,7 +44,6 @@ namespace TestContainerDemo.ConsoleApp.Repositories
 
                     await command.ExecuteNonQueryAsync();
 
-                    // 生成されたIDを取得
                     customer.Id = Convert.ToInt32(idParam.Value.ToString());
                     return customer.Id;
                 }
@@ -52,112 +52,58 @@ namespace TestContainerDemo.ConsoleApp.Repositories
 
         public async Task<Customer> GetCustomerByIdAsync(int id)
         {
-            using (OracleConnection connection = new OracleConnection(_connectionString))
+            using (var connection = new OracleConnection(_connectionString))
             {
-                await connection.OpenAsync();
-
-                string sql = "SELECT ID, NAME, EMAIL, CREATED_AT FROM CUSTOMERS WHERE ID = :Id";
-
-                using (OracleCommand command = new OracleCommand(sql, connection))
-                {
-                    command.Parameters.Add("Id", OracleDbType.Int32).Value = id;
-
-                    using (OracleDataReader reader = await command.ExecuteReaderAsync())
-                    {
-                        if (await reader.ReadAsync())
-                        {
-                            return new Customer
-                            {
-                                Id = reader.GetInt32(0),
-                                Name = reader.GetString(1),
-                                Email = reader.GetString(2),
-                                CreatedAt = reader.GetDateTime(3)
-                            };
-                        }
-                    }
-                }
-
-                return null;
+                return await connection.QuerySingleOrDefaultAsync<Customer>(
+                    "SELECT ID, NAME, EMAIL, CREATED_AT FROM CUSTOMERS WHERE ID = :Id",
+                    new { Id = id });
             }
         }
 
         public async Task<IEnumerable<Customer>> GetAllCustomersAsync()
         {
-            List<Customer> customers = new List<Customer>();
-
-            using (OracleConnection connection = new OracleConnection(_connectionString))
+            using (var connection = new OracleConnection(_connectionString))
             {
-                await connection.OpenAsync();
-
-                string sql = "SELECT ID, NAME, EMAIL, CREATED_AT FROM CUSTOMERS";
-
-                using (OracleCommand command = new OracleCommand(sql, connection))
-                using (OracleDataReader reader = await command.ExecuteReaderAsync())
-                {
-                    while (await reader.ReadAsync())
-                    {
-                        customers.Add(new Customer
-                        {
-                            Id = reader.GetInt32(0),
-                            Name = reader.GetString(1),
-                            Email = reader.GetString(2),
-                            CreatedAt = reader.GetDateTime(3)
-                        });
-                    }
-                }
+                return await connection.QueryAsync<Customer>(
+                    "SELECT ID, NAME, EMAIL, CREATED_AT FROM CUSTOMERS");
             }
-
-            return customers;
         }
 
         public async Task<bool> UpdateCustomerAsync(Customer customer)
         {
-            using (OracleConnection connection = new OracleConnection(_connectionString))
+            using (var connection = new OracleConnection(_connectionString))
             {
-                await connection.OpenAsync();
+                int rowsAffected = await connection.ExecuteAsync(
+                    @"UPDATE CUSTOMERS 
+                      SET NAME = :Name, EMAIL = :Email 
+                      WHERE ID = :Id",
+                    customer);
 
-                string sql = @"
-                    UPDATE CUSTOMERS 
-                    SET NAME = :Name, EMAIL = :Email 
-                    WHERE ID = :Id";
-
-                using (OracleCommand command = new OracleCommand(sql, connection))
-                {
-                    command.Parameters.Add("Name", OracleDbType.Varchar2).Value = customer.Name;
-                    command.Parameters.Add("Email", OracleDbType.Varchar2).Value = customer.Email;
-                    command.Parameters.Add("Id", OracleDbType.Int32).Value = customer.Id;
-
-                    return await command.ExecuteNonQueryAsync() > 0;
-                }
+                return rowsAffected > 0;
             }
         }
 
         public async Task<bool> DeleteCustomerAsync(int id)
         {
-            using (OracleConnection connection = new OracleConnection(_connectionString))
+            using (var connection = new OracleConnection(_connectionString))
             {
-                await connection.OpenAsync();
+                int rowsAffected = await connection.ExecuteAsync(
+                    "DELETE FROM CUSTOMERS WHERE ID = :Id",
+                    new { Id = id });
 
-                string sql = "DELETE FROM CUSTOMERS WHERE ID = :Id";
-
-                using (OracleCommand command = new OracleCommand(sql, connection))
-                {
-                    command.Parameters.Add("Id", OracleDbType.Int32).Value = id;
-
-                    return await command.ExecuteNonQueryAsync() > 0;
-                }
+                return rowsAffected > 0;
             }
         }
 
         // テーブル作成用メソッド（初期化用）
         public async Task EnsureTableCreatedAsync()
         {
-            using (OracleConnection connection = new OracleConnection(_connectionString))
+            using (var connection = new OracleConnection(_connectionString))
             {
                 await connection.OpenAsync();
 
                 // シーケンス作成
-                string createSeqSql = @"
+                await connection.ExecuteAsync(@"
                     DECLARE
                         seq_exists NUMBER;
                     BEGIN
@@ -165,15 +111,10 @@ namespace TestContainerDemo.ConsoleApp.Repositories
                         IF seq_exists = 0 THEN
                             EXECUTE IMMEDIATE 'CREATE SEQUENCE CUSTOMERS_SEQ START WITH 1 INCREMENT BY 1';
                         END IF;
-                    END;";
-
-                using (OracleCommand seqCommand = new OracleCommand(createSeqSql, connection))
-                {
-                    await seqCommand.ExecuteNonQueryAsync();
-                }
+                    END;");
 
                 // テーブル作成
-                string createTableSql = @"
+                await connection.ExecuteAsync(@"
                     DECLARE
                         table_exists NUMBER;
                     BEGIN
@@ -195,12 +136,62 @@ namespace TestContainerDemo.ConsoleApp.Repositories
                                 END IF; 
                             END;';
                         END IF;
-                    END;";
+                    END;");
+            }
+        }
+    }
 
-                using (OracleCommand tableCommand = new OracleCommand(createTableSql, connection))
-                {
-                    await tableCommand.ExecuteNonQueryAsync();
-                }
+    // Oracle用DynamicParametersクラス (Dapperの拡張)
+    public class OracleDynamicParameters : SqlMapper.IDynamicParameters
+    {
+        private readonly Dictionary<string, OracleParameter> _parameters = new Dictionary<string, OracleParameter>();
+
+        public void Add(string name, object value = null, OracleDbType? dbType = null, ParameterDirection? direction = null, int? size = null)
+        {
+            var parameter = new OracleParameter
+            {
+                ParameterName = name,
+                Value = value ?? DBNull.Value
+            };
+
+            if (dbType.HasValue)
+                parameter.OracleDbType = dbType.Value;
+
+            if (direction.HasValue)
+                parameter.Direction = direction.Value;
+
+            if (size.HasValue)
+                parameter.Size = size.Value;
+
+            _parameters[name] = parameter;
+        }
+
+        public T Get<T>(string name)
+        {
+            var value = _parameters[name].Value;
+
+            // DBNullの場合はデフォルト値を返す
+            if (value == null || value == DBNull.Value)
+            {
+                return default;
+            }
+
+            // Numberの場合はIntへの明示的な変換が必要
+            if (typeof(T) == typeof(int) && value is decimal)
+            {
+                return (T)(object)Convert.ToInt32(value);
+            }
+
+            // その他の型は標準的な変換を試みる
+            return (T)Convert.ChangeType(value, typeof(T));
+        }
+
+        public void AddParameters(IDbCommand command, SqlMapper.Identity identity)
+        {
+            var oracleCommand = (OracleCommand)command;
+            foreach (var param in _parameters.Values)
+            {
+                oracleCommand.Parameters.Add(param);
             }
         }
     }
