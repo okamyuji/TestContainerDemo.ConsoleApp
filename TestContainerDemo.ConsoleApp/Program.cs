@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using TestContainerDemo.ConsoleApp.Models;
 using TestContainerDemo.ConsoleApp.Repositories;
+using TestContainerDemo.ConsoleApp.SqlQueries;
 
 namespace TestContainerDemo.ConsoleApp
 {
@@ -10,6 +11,22 @@ namespace TestContainerDemo.ConsoleApp
         static async Task Main(string[] args)
         {
             Console.WriteLine("TestContainer Demo Application Starting...");
+
+            // SQLクエリマネージャの初期化（クラスの静的コンストラクタで実際には実行されますが、
+            // ここで明示的に呼び出しておくことで、エラーがあれば早期に検出できます）
+            try
+            {
+                // SqlQueryManager は静的クラスなので、型にアクセスするだけで初期化されます
+                var dummyQuery = SqlQueryManager.GetQuery("Postgres_GetAllCustomers");
+                Console.WriteLine("SQLクエリの読み込みが完了しました。");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"SQLクエリの読み込みに失敗しました: {ex.Message}");
+                Console.WriteLine("アプリケーションを終了します。");
+                Console.ReadKey();
+                return;
+            }
 
             // コマンドライン引数からデータベースタイプを取得
             string dbType = args.Length > 0 ? args[0].ToLower() : "postgres";

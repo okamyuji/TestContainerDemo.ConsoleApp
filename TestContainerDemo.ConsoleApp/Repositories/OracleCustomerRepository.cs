@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Threading.Tasks;
 using TestContainerDemo.ConsoleApp.Models;
+using TestContainerDemo.ConsoleApp.SqlQueries;
 
 namespace TestContainerDemo.ConsoleApp.Repositories
 {
@@ -27,10 +28,7 @@ namespace TestContainerDemo.ConsoleApp.Repositories
                 // これはOracle特有の方法でRETURNING句と出力パラメータを処理するため
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = @"
-                        INSERT INTO CUSTOMERS (NAME, EMAIL, CREATED_AT) 
-                        VALUES (:Name, :Email, :CreatedAt) 
-                        RETURNING ID INTO :Id";
+                    command.CommandText = SqlQueryManager.GetQuery("Oracle_CreateCustomer");
 
                     command.Parameters.Add("Name", OracleDbType.Varchar2).Value = customer.Name;
                     command.Parameters.Add("Email", OracleDbType.Varchar2).Value = customer.Email;
@@ -54,9 +52,8 @@ namespace TestContainerDemo.ConsoleApp.Repositories
         {
             using (var connection = new OracleConnection(_connectionString))
             {
-                return await connection.QuerySingleOrDefaultAsync<Customer>(
-                    "SELECT ID, NAME, EMAIL, CREATED_AT FROM CUSTOMERS WHERE ID = :Id",
-                    new { Id = id });
+                var sql = SqlQueryManager.GetQuery("Oracle_GetCustomerById");
+                return await connection.QuerySingleOrDefaultAsync<Customer>(sql, new { Id = id });
             }
         }
 
@@ -64,8 +61,8 @@ namespace TestContainerDemo.ConsoleApp.Repositories
         {
             using (var connection = new OracleConnection(_connectionString))
             {
-                return await connection.QueryAsync<Customer>(
-                    "SELECT ID, NAME, EMAIL, CREATED_AT FROM CUSTOMERS");
+                var sql = SqlQueryManager.GetQuery("Oracle_GetAllCustomers");
+                return await connection.QueryAsync<Customer>(sql);
             }
         }
 
@@ -73,12 +70,8 @@ namespace TestContainerDemo.ConsoleApp.Repositories
         {
             using (var connection = new OracleConnection(_connectionString))
             {
-                int rowsAffected = await connection.ExecuteAsync(
-                    @"UPDATE CUSTOMERS 
-                      SET NAME = :Name, EMAIL = :Email 
-                      WHERE ID = :Id",
-                    customer);
-
+                var sql = SqlQueryManager.GetQuery("Oracle_UpdateCustomer");
+                int rowsAffected = await connection.ExecuteAsync(sql, customer);
                 return rowsAffected > 0;
             }
         }
@@ -87,15 +80,12 @@ namespace TestContainerDemo.ConsoleApp.Repositories
         {
             using (var connection = new OracleConnection(_connectionString))
             {
-                int rowsAffected = await connection.ExecuteAsync(
-                    "DELETE FROM CUSTOMERS WHERE ID = :Id",
-                    new { Id = id });
-
+                var sql = SqlQueryManager.GetQuery("Oracle_DeleteCustomer");
+                int rowsAffected = await connection.ExecuteAsync(sql, new { Id = id });
                 return rowsAffected > 0;
             }
         }
 
-        // テーブル作成用メソッド（初期化用）
         public async Task EnsureTableCreatedAsync()
         {
             using (var connection = new OracleConnection(_connectionString))
@@ -103,40 +93,12 @@ namespace TestContainerDemo.ConsoleApp.Repositories
                 await connection.OpenAsync();
 
                 // シーケンス作成
-                await connection.ExecuteAsync(@"
-                    DECLARE
-                        seq_exists NUMBER;
-                    BEGIN
-                        SELECT COUNT(*) INTO seq_exists FROM USER_SEQUENCES WHERE SEQUENCE_NAME = 'CUSTOMERS_SEQ';
-                        IF seq_exists = 0 THEN
-                            EXECUTE IMMEDIATE 'CREATE SEQUENCE CUSTOMERS_SEQ START WITH 1 INCREMENT BY 1';
-                        END IF;
-                    END;");
+                var createSequenceSql = SqlQueryManager.GetQuery("Oracle_CreateSequence");
+                await connection.ExecuteAsync(createSequenceSql);
 
                 // テーブル作成
-                await connection.ExecuteAsync(@"
-                    DECLARE
-                        table_exists NUMBER;
-                    BEGIN
-                        SELECT COUNT(*) INTO table_exists FROM USER_TABLES WHERE TABLE_NAME = 'CUSTOMERS';
-                        IF table_exists = 0 THEN
-                            EXECUTE IMMEDIATE 'CREATE TABLE CUSTOMERS (
-                                ID NUMBER PRIMARY KEY,
-                                NAME VARCHAR2(100) NOT NULL,
-                                EMAIL VARCHAR2(100) UNIQUE NOT NULL,
-                                CREATED_AT DATE NOT NULL
-                            )';
-                            
-                            EXECUTE IMMEDIATE 'CREATE OR REPLACE TRIGGER CUSTOMERS_BI_TRG 
-                            BEFORE INSERT ON CUSTOMERS 
-                            FOR EACH ROW 
-                            BEGIN 
-                                IF :NEW.ID IS NULL THEN 
-                                    SELECT CUSTOMERS_SEQ.NEXTVAL INTO :NEW.ID FROM DUAL; 
-                                END IF; 
-                            END;';
-                        END IF;
-                    END;");
+                var createTableSql = SqlQueryManager.GetQuery("Oracle_CreateTable");
+                await connection.ExecuteAsync(createTableSql);
             }
         }
     }
