@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using TestContainerDemo.ConsoleApp.Models;
 using TestContainerDemo.ConsoleApp.Repositories;
 using TestContainerDemo.Tests.Helpers;
+using TestContainerDemo.Tests.SqlQueries;
 
 namespace TestContainerDemo.Tests
 {
@@ -21,6 +22,20 @@ namespace TestContainerDemo.Tests
             {
                 throw new ArgumentNullException(nameof(context));
             }
+
+            // SQLクエリマネージャの初期化を確認（エラー時には早期に検出）
+            try
+            {
+                // テスト用のSqlQueryManagerにアクセス
+                var dummyQuery = SqlQueryManager.GetQuery("Oracle_GetAllCustomers");
+                Console.WriteLine("テスト用SQLクエリの読み込みが完了しました。");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"テスト用SQLクエリの読み込みに失敗しました: {ex.Message}");
+                throw;
+            }
+
             // コンテナ名を一意にするためにGUIDを使用
             string containerName = $"oracle-test-{Guid.NewGuid().ToString("N").Substring(0, 8)}";
 

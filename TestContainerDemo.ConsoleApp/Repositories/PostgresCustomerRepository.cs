@@ -3,6 +3,7 @@ using Npgsql;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using TestContainerDemo.ConsoleApp.Models;
+using TestContainerDemo.ConsoleApp.SqlQueries;
 
 namespace TestContainerDemo.ConsoleApp.Repositories
 {
@@ -19,12 +20,8 @@ namespace TestContainerDemo.ConsoleApp.Repositories
         {
             using (var connection = new NpgsqlConnection(_connectionString))
             {
-                // PostgreSQLは直接RETURNING句でIDを取得できる
-                var id = await connection.QuerySingleAsync<int>(@"
-                    INSERT INTO customers (name, email, created_at) 
-                    VALUES (@Name, @Email, @CreatedAt) 
-                    RETURNING id",
-                    customer);
+                var sql = SqlQueryManager.GetQuery("Postgres_CreateCustomer");
+                var id = await connection.QuerySingleAsync<int>(sql, customer);
 
                 customer.Id = id;
                 return id;
@@ -35,9 +32,8 @@ namespace TestContainerDemo.ConsoleApp.Repositories
         {
             using (var connection = new NpgsqlConnection(_connectionString))
             {
-                return await connection.QuerySingleOrDefaultAsync<Customer>(
-                    "SELECT id, name, email, created_at FROM customers WHERE id = @Id",
-                    new { Id = id });
+                var sql = SqlQueryManager.GetQuery("Postgres_GetCustomerById");
+                return await connection.QuerySingleOrDefaultAsync<Customer>(sql, new { Id = id });
             }
         }
 
@@ -45,8 +41,8 @@ namespace TestContainerDemo.ConsoleApp.Repositories
         {
             using (var connection = new NpgsqlConnection(_connectionString))
             {
-                return await connection.QueryAsync<Customer>(
-                    "SELECT id, name, email, created_at FROM customers");
+                var sql = SqlQueryManager.GetQuery("Postgres_GetAllCustomers");
+                return await connection.QueryAsync<Customer>(sql);
             }
         }
 
@@ -54,12 +50,8 @@ namespace TestContainerDemo.ConsoleApp.Repositories
         {
             using (var connection = new NpgsqlConnection(_connectionString))
             {
-                int rowsAffected = await connection.ExecuteAsync(@"
-                    UPDATE customers 
-                    SET name = @Name, email = @Email 
-                    WHERE id = @Id",
-                    customer);
-
+                var sql = SqlQueryManager.GetQuery("Postgres_UpdateCustomer");
+                int rowsAffected = await connection.ExecuteAsync(sql, customer);
                 return rowsAffected > 0;
             }
         }
@@ -68,26 +60,18 @@ namespace TestContainerDemo.ConsoleApp.Repositories
         {
             using (var connection = new NpgsqlConnection(_connectionString))
             {
-                int rowsAffected = await connection.ExecuteAsync(
-                    "DELETE FROM customers WHERE id = @Id",
-                    new { Id = id });
-
+                var sql = SqlQueryManager.GetQuery("Postgres_DeleteCustomer");
+                int rowsAffected = await connection.ExecuteAsync(sql, new { Id = id });
                 return rowsAffected > 0;
             }
         }
 
-        // テーブル作成用メソッド（初期化用）
         public async Task EnsureTableCreatedAsync()
         {
             using (var connection = new NpgsqlConnection(_connectionString))
             {
-                await connection.ExecuteAsync(@"
-                    CREATE TABLE IF NOT EXISTS customers (
-                        id SERIAL PRIMARY KEY,
-                        name VARCHAR(100) NOT NULL,
-                        email VARCHAR(100) UNIQUE NOT NULL,
-                        created_at TIMESTAMP NOT NULL
-                    )");
+                var sql = SqlQueryManager.GetQuery("Postgres_EnsureTableCreated");
+                await connection.ExecuteAsync(sql);
             }
         }
     }
